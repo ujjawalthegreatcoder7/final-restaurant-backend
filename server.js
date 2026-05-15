@@ -187,12 +187,12 @@ app.post("/place-order", async (req, res) => {
     }
 
     // // CHECK OTP STILL EXISTS
-    // if (otpStore.has(formattedPhone)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Please verify OTP firstserver",
-    //   });
-    // }
+    if (otpStore.has(formattedPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please verify OTP firstserver",
+      });
+    }
 
     const transporter = nodemailer.createTransport({
       service: "gmail",
