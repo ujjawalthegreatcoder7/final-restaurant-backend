@@ -17,6 +17,8 @@ dns.setServers([
 app.use(cors());
 app.use(express.json());
 
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
 /* =========================
    TWILIO CONFIG
 ========================= */
@@ -201,18 +203,24 @@ app.post("/place-order", async (req, res) => {
     //     pass: process.env.EMAIL_PASS,
     //   },
     // });
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
+        family: 4,
+      },
+      connectionTimeout: 20000,
+      greetingTimeout: 20000,
+      socketTimeout: 30000,
+    });
+
     const orderDetails = cartItems
       .map(
         (item) =>
