@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const twilio = require("twilio");
 require("dotenv").config();
 
-const Menu = require("./models/Menu");
+const Menu = require("./models/menu");
 const dns = require("dns");
 dns.setServers([
   '1.1.1.1',
