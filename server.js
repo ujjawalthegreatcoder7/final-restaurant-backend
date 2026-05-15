@@ -8,6 +8,11 @@ require("dotenv").config();
 const Menu = require("./models/menu");
 
 const app = express();
+const dns = require("dns");
+dns.setServers([
+  '1.1.1.1',
+  '8.8.8.1',
+])
 
 app.use(cors());
 app.use(express.json());
@@ -181,13 +186,13 @@ app.post("/place-order", async (req, res) => {
       formattedPhone = "+91" + formattedPhone;
     }
 
-    // CHECK OTP STILL EXISTS
-    if (otpStore.has(formattedPhone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please verify OTP first",
-      });
-    }
+    // // CHECK OTP STILL EXISTS
+    // if (otpStore.has(formattedPhone)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Please verify OTP firstserver",
+    //   });
+    // }
 
     const transporter = nodemailer.createTransport({
       service: "gmail",
