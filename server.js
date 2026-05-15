@@ -2,16 +2,10 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
-const jwt = require("jsonwebtoken");
 const twilio = require("twilio");
 require("dotenv").config();
 
 const Menu = require("./models/menu");
-const dns = require("dns");
-dns.setServers([
-  '1.1.1.1',
-  '8.8.8.1',
-])
 
 const app = express();
 
@@ -19,12 +13,17 @@ app.use(cors());
 app.use(express.json());
 
 /* =========================
-   TWILIO CONFIG (FIXED)
+   TWILIO CONFIG
 ========================= */
-const client = twilio(
-  process.env.TWILIO_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+let client;
+try {
+  client = twilio(
+    process.env.TWILIO_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
+} catch (err) {
+  console.log("Twilio init failed:", err.message);
+}
 
 const TWILIO_NUMBER = process.env.TWILIO_NUMBER;
 
@@ -32,7 +31,7 @@ const TWILIO_NUMBER = process.env.TWILIO_NUMBER;
 const otpStore = new Map();
 
 /* =========================
-   MONGODB (FIXED → ENV)
+   MONGODB
 ========================= */
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB Connected"))
@@ -54,13 +53,16 @@ app.get("/menu", async (req, res) => {
    SEND OTP
 ========================= */
 app.post("/send-otp", async (req, res) => {
-  let { phone } = req.body;
-
-  if (!phone) {
-    return res.status(400).json({ message: "Phone required" });
-  }
-
   try {
+    let { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone required",
+      });
+    }
+
     if (!phone.startsWith("+")) {
       phone = "+91" + phone;
     }
@@ -70,11 +72,16 @@ app.post("/send-otp", async (req, res) => {
 
     otpStore.set(phone, { otp, expiresAt });
 
-    await client.messages.create({
-      body: `Your OTP for Restaurant Order is: ${otp}`,
-      from: TWILIO_NUMBER,
-      to: phone,
-    });
+    // SAFE TWILIO CALL
+    if (client) {
+      await client.messages.create({
+        body: `Your OTP is: ${otp}`,
+        from: TWILIO_NUMBER,
+        to: phone,
+      });
+    } else {
+      console.log("Twilio not configured, OTP:", otp);
+    }
 
     res.json({
       success: true,
@@ -82,10 +89,10 @@ app.post("/send-otp", async (req, res) => {
     });
 
   } catch (error) {
-    console.log("TWILIO ERROR:", error);
+    console.log("OTP ERROR:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to send OTP",
     });
   }
 });
@@ -94,63 +101,87 @@ app.post("/send-otp", async (req, res) => {
    VERIFY OTP
 ========================= */
 app.post("/verify-otp", (req, res) => {
-  let { phone, otp } = req.body;
+  try {
+    let { phone, otp } = req.body;
 
-  if (!phone.startsWith("+")) {
-    phone = "+91" + phone;
-  }
+    if (!phone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone and OTP required",
+      });
+    }
 
-  const record = otpStore.get(phone);
+    if (!phone.startsWith("+")) {
+      phone = "+91" + phone;
+    }
 
-  if (!record) {
-    return res.status(400).json({
-      success: false,
-      message: "OTP not found",
-    });
-  }
+    const record = otpStore.get(phone);
 
-  if (Date.now() > record.expiresAt) {
+    if (!record) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP not found",
+      });
+    }
+
+    if (Date.now() > record.expiresAt) {
+      otpStore.delete(phone);
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired",
+      });
+    }
+
+    if (Number(otp) !== record.otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
     otpStore.delete(phone);
-    return res.status(400).json({
+
+    res.json({
+      success: true,
+      message: "Phone verified successfully",
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
       success: false,
-      message: "OTP expired",
+      message: "OTP verification failed",
     });
   }
-
-  if (Number(otp) !== record.otp) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid OTP",
-    });
-  }
-
-  otpStore.delete(phone);
-
-  res.json({
-    success: true,
-    message: "Phone verified successfully",
-  });
 });
 
 /* =========================
    PLACE ORDER
 ========================= */
 app.post("/place-order", async (req, res) => {
-  const {
-    customerName,
-    phone,
-    tableNumber,
-    cartItems,
-    totalPrice
-  } = req.body;
-
   try {
+    const {
+      customerName,
+      phone,
+      tableNumber,
+      cartItems,
+      totalPrice
+    } = req.body;
+
+    if (!phone || !cartItems) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing data",
+      });
+    }
+
     let formattedPhone = phone;
 
     if (!formattedPhone.startsWith("+")) {
       formattedPhone = "+91" + formattedPhone;
     }
 
+    // CHECK OTP STILL EXISTS
     if (otpStore.has(formattedPhone)) {
       return res.status(400).json({
         success: false,
@@ -167,8 +198,9 @@ app.post("/place-order", async (req, res) => {
     });
 
     const orderDetails = cartItems
-      .map(item =>
-        `${item.name} | Qty: ${item.quantity} | ₹${item.price}`
+      .map(
+        (item) =>
+          `${item.name} | Qty: ${item.quantity} | ₹${item.price}`
       )
       .join("\n");
 
