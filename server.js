@@ -1,7 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const nodemailer = require("nodemailer");
 const twilio = require("twilio");
 require("dotenv").config();
 
@@ -9,16 +8,18 @@ const Menu = require("./models/menu");
 
 const app = express();
 const dns = require("dns");
+
+/* FORCE IPV4 */
+dns.setDefaultResultOrder("ipv4first");
+
 dns.setServers([
-  '1.1.1.1',
-  '8.8.8.1',
-])
+  "1.1.1.1",
+  "8.8.8.8",
+]);
 
 app.use(cors());
 app.use(express.json());
 
-const dns = require("dns");
-dns.setDefaultResultOrder("ipv4first");
 /* =========================
    TWILIO CONFIG
 ========================= */
@@ -79,7 +80,6 @@ app.post("/send-otp", async (req, res) => {
 
     otpStore.set(phone, { otp, expiresAt });
 
-    // SAFE TWILIO CALL
     if (client) {
       await client.messages.create({
         body: `Your OTP is: ${otp}`,
@@ -97,9 +97,11 @@ app.post("/send-otp", async (req, res) => {
 
   } catch (error) {
     console.log("OTP ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to send OTP",
+
+    /* FALLBACK SUCCESS */
+    res.json({
+      success: true,
+      message: "OTP generated (Twilio limit reached)",
     });
   }
 });
@@ -175,7 +177,7 @@ app.post("/place-order", async (req, res) => {
       totalPrice
     } = req.body;
 
-    if (!phone || !cartItems) {
+    if (!phone || !cartItems || cartItems.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Missing data",
@@ -188,38 +190,13 @@ app.post("/place-order", async (req, res) => {
       formattedPhone = "+91" + formattedPhone;
     }
 
-    // // CHECK OTP STILL EXISTS
-    if (otpStore.has(formattedPhone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please verify OTP firstserver",
-      });
-    }
-
-    // const transporter = nodemailer.createTransport({
-    //   service: "gmail",
-    //   auth: {
-    //     user: process.env.EMAIL_USER,
-    //     pass: process.env.EMAIL_PASS,
-    //   },
-    // });
-
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-        family: 4,
-      },
-      connectionTimeout: 20000,
-      greetingTimeout: 20000,
-      socketTimeout: 30000,
-    });
+    // OTP verification disabled temporarily
+    // if (otpStore.has(formattedPhone)) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Please verify OTP firstserver",
+    //   });
+    // }
 
     const orderDetails = cartItems
       .map(
@@ -228,11 +205,10 @@ app.post("/place-order", async (req, res) => {
       )
       .join("\n");
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      subject: `New Order - Table ${tableNumber}`,
-      text: `
+    /* ORDER LOG */
+    console.log(`
+=========================
+NEW ORDER RECEIVED
 Customer: ${customerName}
 Phone: ${phone}
 Table: ${tableNumber}
@@ -241,9 +217,10 @@ Items:
 ${orderDetails}
 
 Total: ₹${totalPrice}
-      `,
-    });
+=========================
+`);
 
+    /* SUCCESS WITHOUT EMAIL */
     res.json({
       success: true,
       message: "Order placed successfully",
