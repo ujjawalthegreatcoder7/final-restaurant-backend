@@ -174,6 +174,7 @@ app.post("/place-order", async (req, res) => {
       phone,
       tableNumber,
       cartItems,
+      AdditionalInformation,
       totalPrice
     } = req.body;
 
@@ -208,15 +209,19 @@ app.post("/place-order", async (req, res) => {
     /* ORDER LOG */
     console.log(`
 =========================
+
 NEW ORDER RECEIVED
 Customer: ${customerName}
 Phone: ${phone}
 Table: ${tableNumber}
 
+Additional Information : ${AdditionalInformation}
+
 Items:
 ${orderDetails}
 
 Total: ₹${totalPrice}
+
 =========================
 `);
 
