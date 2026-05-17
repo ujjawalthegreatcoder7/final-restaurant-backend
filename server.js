@@ -2,6 +2,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const twilio = require("twilio");
+const Razorpay = require("razorpay");
+const crypto = require("crypto");
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
@@ -14,11 +16,7 @@ const dns = require("dns");
 
 /* FORCE IPV4 */
 dns.setDefaultResultOrder("ipv4first");
-
-dns.setServers([
-  "1.1.1.1",
-  "8.8.8.8",
-]);
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 app.use(cors());
 app.use(express.json());
@@ -37,6 +35,14 @@ try {
 }
 
 const TWILIO_NUMBER = process.env.TWILIO_NUMBER;
+
+/* =========================
+   RAZORPAY CONFIG
+========================= */
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 /* OTP STORAGE */
 const otpStore = new Map();
@@ -260,6 +266,77 @@ app.post("/verify-otp", (req, res) => {
 });
 
 /* =========================
+   CREATE RAZORPAY ORDER
+========================= */
+app.post("/create-razorpay-order", async (req, res) => {
+  try {
+    const { amount } = req.body;
+
+    const options = {
+      amount: amount * 100, // paise
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+
+    res.json({
+      success: true,
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
+
+  } catch (error) {
+    console.log("RAZORPAY ORDER ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Payment initialization failed",
+    });
+  }
+});
+
+/* =========================
+   VERIFY RAZORPAY PAYMENT
+========================= */
+app.post("/verify-razorpay-payment", (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature === razorpay_signature) {
+      res.json({
+        success: true,
+        message: "Payment verified successfully",
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Invalid payment signature",
+      });
+    }
+
+  } catch (error) {
+    console.log("PAYMENT VERIFY ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Payment verification failed",
+    });
+  }
+});
+
+/* =========================
    PLACE ORDER
 ========================= */
 app.post("/place-order", async (req, res) => {
@@ -270,7 +347,8 @@ app.post("/place-order", async (req, res) => {
       tableNumber,
       cartItems,
       AdditionalInformation,
-      totalPrice
+      totalPrice,
+      paymentMethod,
     } = req.body;
 
     if (!phone || !cartItems || cartItems.length === 0) {
@@ -300,8 +378,9 @@ NEW ORDER RECEIVED
 Customer: ${customerName}
 Phone: ${phone}
 Table: ${tableNumber}
+Payment: ${paymentMethod}
 
-Additional Information : ${AdditionalInformation}
+Additional Information: ${AdditionalInformation}
 
 Items:
 ${orderDetails}
@@ -351,7 +430,6 @@ Total: ₹${totalPrice}
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
-
 // const express = require("express");
 // const mongoose = require("mongoose");
 // const cors = require("cors");
