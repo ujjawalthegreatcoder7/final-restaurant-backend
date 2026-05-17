@@ -2,6 +2,9 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const twilio = require("twilio");
+const PDFDocument = require("pdfkit");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 const Menu = require("./models/menu");
@@ -37,6 +40,99 @@ const TWILIO_NUMBER = process.env.TWILIO_NUMBER;
 
 /* OTP STORAGE */
 const otpStore = new Map();
+
+/* =========================
+   PDF BILL GENERATOR
+========================= */
+const generatePDFBill = (order) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const billsDir = path.join(__dirname, "bills");
+
+      if (!fs.existsSync(billsDir)) {
+        fs.mkdirSync(billsDir);
+      }
+
+      const fileName = `bill_${Date.now()}.pdf`;
+      const filePath = path.join(billsDir, fileName);
+
+      const doc = new PDFDocument();
+      const stream = fs.createWriteStream(filePath);
+
+      doc.pipe(stream);
+
+      doc.fontSize(22).text("Restaurant Bill", {
+        align: "center",
+      });
+
+      doc.moveDown();
+      doc.fontSize(14).text(`Customer: ${order.customerName}`);
+      doc.text(`Phone: ${order.phone}`);
+      doc.text(`Table: ${order.tableNumber}`);
+      doc.text(`Date: ${new Date().toLocaleString()}`);
+
+      doc.moveDown();
+      doc.text("Items Ordered:");
+
+      order.cartItems.forEach((item) => {
+        doc.text(
+          `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
+        );
+      });
+
+      doc.moveDown();
+      doc.fontSize(16).text(`Total Bill: ₹${order.totalPrice}`);
+
+      if (order.AdditionalInformation) {
+        doc.moveDown();
+        doc.fontSize(12).text(
+          `Additional Info: ${order.AdditionalInformation}`
+        );
+      }
+
+      doc.moveDown(2);
+      doc.text("Thank you for dining with us!", {
+        align: "center",
+      });
+
+      doc.end();
+
+      stream.on("finish", () => resolve(filePath));
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+/* =========================
+   BILL SMS
+========================= */
+const sendBillSMS = async (phone, order) => {
+  try {
+    if (client) {
+      const billMessage = `
+Thank you ${order.customerName}!
+
+Order Confirmed
+Table: ${order.tableNumber}
+Total Bill: ₹${order.totalPrice}
+
+Enjoy your meal!
+`;
+
+      await client.messages.create({
+        body: billMessage,
+        from: TWILIO_NUMBER,
+        to: phone,
+      });
+
+      console.log("Bill SMS sent successfully");
+    }
+  } catch (error) {
+    console.log("Bill SMS failed:", error.message);
+  }
+};
 
 /* =========================
    MONGODB
@@ -98,7 +194,6 @@ app.post("/send-otp", async (req, res) => {
   } catch (error) {
     console.log("OTP ERROR:", error);
 
-    /* FALLBACK SUCCESS */
     res.json({
       success: true,
       message: "OTP generated (Twilio limit reached)",
@@ -191,14 +286,6 @@ app.post("/place-order", async (req, res) => {
       formattedPhone = "+91" + formattedPhone;
     }
 
-    // OTP verification disabled temporarily
-    // if (otpStore.has(formattedPhone)) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Please verify OTP firstserver",
-    //   });
-    // }
-
     const orderDetails = cartItems
       .map(
         (item) =>
@@ -206,7 +293,6 @@ app.post("/place-order", async (req, res) => {
       )
       .join("\n");
 
-    /* ORDER LOG */
     console.log(`
 =========================
 
@@ -225,10 +311,29 @@ Total: ₹${totalPrice}
 =========================
 `);
 
-    /* SUCCESS WITHOUT EMAIL */
+    /* GENERATE PDF BILL */
+    const pdfPath = await generatePDFBill({
+      customerName,
+      phone,
+      tableNumber,
+      cartItems,
+      AdditionalInformation,
+      totalPrice,
+    });
+
+    console.log("PDF Bill Generated:", pdfPath);
+
+    /* SEND CUSTOMER BILL SMS */
+    await sendBillSMS(formattedPhone, {
+      customerName,
+      tableNumber,
+      totalPrice,
+    });
+
     res.json({
       success: true,
-      message: "Order placed successfully",
+      message: "Order placed successfully & bill sent",
+      billPath: pdfPath,
     });
 
   } catch (error) {
@@ -246,7 +351,6 @@ Total: ₹${totalPrice}
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
-
 
 // const express = require("express");
 // const mongoose = require("mongoose");
