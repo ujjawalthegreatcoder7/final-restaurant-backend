@@ -358,10 +358,17 @@ app.post("/place-order", async (req, res) => {
       paymentMethod,
     } = req.body;
 
-    if (!phone || !cartItems || cartItems.length === 0) {
+    /* VALIDATION */
+    if (
+      !customerName ||
+      !phone ||
+      !tableNumber ||
+      !cartItems ||
+      cartItems.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Missing data",
+        message: "Missing required data",
       });
     }
 
@@ -371,36 +378,54 @@ app.post("/place-order", async (req, res) => {
       formattedPhone = "+91" + formattedPhone;
     }
 
+    /* =========================
+       FULL CART DETAILS
+    ========================= */
     const orderDetails = cartItems
       .map(
-        (item) =>
-          `${item.name} | Qty: ${item.quantity} | ₹${item.price}`
+        (item, index) =>
+          `${index + 1}. ${item.name}
+   Quantity: ${item.quantity}
+   Price Per Item: ₹${item.price}
+   Total Item Cost: ₹${item.price * item.quantity}`
       )
-      .join("\n");
+      .join("\n\n");
 
+    /* =========================
+       RENDER LOGS
+    ========================= */
     console.log(`
-=========================
+======================================================
+                NEW ORDER RECEIVED
+======================================================
 
-NEW ORDER RECEIVED
-Customer: ${customerName}
-Phone: ${phone}
-Table: ${tableNumber}
-Payment: ${paymentMethod}
+Customer Name : ${customerName}
+Phone Number  : ${formattedPhone}
+Table Number  : ${tableNumber}
+Payment Method: ${paymentMethod}
 
-Additional Information: ${AdditionalInformation}
+Additional Info:
+${AdditionalInformation || "None"}
 
-Items:
+------------------ CART ITEMS ------------------------
+
 ${orderDetails}
 
-Total: ₹${totalPrice}
+------------------------------------------------------
 
-=========================
+TOTAL BILL: ₹${totalPrice}
+
+Order Time: ${new Date().toLocaleString()}
+
+======================================================
 `);
 
-    /* GENERATE PDF BILL */
+    /* =========================
+       GENERATE PDF BILL
+    ========================= */
     const pdfPath = await generatePDFBill({
       customerName,
-      phone,
+      phone: formattedPhone,
       tableNumber,
       cartItems,
       AdditionalInformation,
@@ -409,24 +434,33 @@ Total: ₹${totalPrice}
 
     console.log("PDF Bill Generated:", pdfPath);
 
-    /* SEND CUSTOMER BILL SMS */
+    /* =========================
+       SEND CUSTOMER BILL SMS
+    ========================= */
     await sendBillSMS(formattedPhone, {
       customerName,
       tableNumber,
       totalPrice,
     });
 
+    /* =========================
+       SUCCESS RESPONSE
+    ========================= */
     res.json({
       success: true,
       message: "Order placed successfully & bill sent",
       billPath: pdfPath,
+      orderedItems: cartItems,
+      paymentMethod,
     });
 
   } catch (error) {
     console.log("ORDER ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: "Order failed",
+      error: error.message,
     });
   }
 });
@@ -437,6 +471,7 @@ Total: ₹${totalPrice}
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
+
 // const express = require("express");
 // const mongoose = require("mongoose");
 // const cors = require("cors");
@@ -677,3 +712,5 @@ app.listen(5000, () => {
 // app.listen(5000, () => {
 //   console.log("Server running on port 5000");
 // });
+
+
