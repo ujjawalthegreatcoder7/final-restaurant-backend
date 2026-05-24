@@ -489,7 +489,6 @@ const Menu = require("./models/menu");
 
 const app = express();
 
-app.use("/bills", express.static(path.join(__dirname, "bills")));
 
 const dns = require("dns");
 /* FORCE IPV4 */
@@ -855,9 +854,7 @@ app.post("/saveuser", (req, res) => {
 ========================= */
 
 app.post("/place-order", async (req, res) => {
-
   try {
-
     const {
       tableNumber,
       cartItems,
@@ -865,22 +862,16 @@ app.post("/place-order", async (req, res) => {
       totalPrice,
       paymentMethod,
 
-      // 🔥 GOOGLE USER DATA
       customerUID,
       customerName,
       customerEmail,
       customerPhoto,
-
     } = req.body;
 
     /* =========================
        VALIDATION
     ========================= */
-    if (
-      !tableNumber ||
-      !cartItems ||
-      cartItems.length === 0
-    ) {
+    if (!tableNumber || !cartItems || cartItems.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Missing required data",
@@ -888,7 +879,7 @@ app.post("/place-order", async (req, res) => {
     }
 
     /* =========================
-       FULL CART DETAILS
+       CART FORMAT
     ========================= */
     const orderDetails = cartItems
       .map(
@@ -901,7 +892,7 @@ Total Item Cost: ₹${item.price * item.quantity}`
       .join("\n\n");
 
     /* =========================
-       RENDER LOGS
+       LOGS
     ========================= */
     console.log(`
 ======================================================
@@ -933,12 +924,12 @@ TOTAL BILL: ₹${totalPrice}
 Order Time: ${new Date().toLocaleString()}
 
 ======================================================
-`);
+    `);
 
     /* =========================
        GENERATE PDF BILL
     ========================= */
-    const pdfPath = await generatePDFBill({
+    const pdfFileName = await generatePDFBill({
       customerName,
       customerEmail,
       tableNumber,
@@ -947,15 +938,21 @@ Order Time: ${new Date().toLocaleString()}
       totalPrice,
     });
 
-    console.log("PDF Bill Generated:", pdfPath);
+    console.log("PDF Bill Generated:", pdfFileName);
 
+    /* =========================
+       CREATE PUBLIC URL (IMPORTANT FIX)
+    ========================= */
+const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
     /* =========================
        SUCCESS RESPONSE
     ========================= */
     res.json({
       success: true,
       message: "Order placed successfully",
-      billPath: pdfPath,
+
+      billUrl: pdfUrl,   // ✅ THIS IS THE FIXED LINE
+
       orderedItems: cartItems,
       paymentMethod,
 
@@ -968,7 +965,6 @@ Order Time: ${new Date().toLocaleString()}
     });
 
   } catch (error) {
-
     console.log("ORDER ERROR:", error);
 
     res.status(500).json({
@@ -976,9 +972,30 @@ Order Time: ${new Date().toLocaleString()}
       message: "Order failed",
       error: error.message,
     });
-
   }
+});
 
+
+app.get("/bills/:filename", (req, res) => {
+  try {
+    const filePath = path.join(__dirname, "bills", req.params.filename);
+
+    res.sendFile(filePath, (err) => {
+      if (err) {
+        console.log("File send error:", err);
+        res.status(404).json({
+          success: false,
+          message: "Bill not found",
+        });
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
 });
 /* =========================
    SERVER
