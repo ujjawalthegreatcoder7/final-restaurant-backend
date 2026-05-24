@@ -526,7 +526,7 @@ const razorpay = new Razorpay({
 const otpStore = new Map();
 
 /* =========================
-   PDF GENERATOR (FINAL FIX)
+   PDF GENERATOR (FIXED)
 ========================= */
 const generatePDFBill = (order) => {
   return new Promise((resolve, reject) => {
@@ -548,17 +548,16 @@ const generatePDFBill = (order) => {
       doc.fontSize(22).text("Restaurant Bill", { align: "center" });
 
       doc.moveDown();
-      doc.fontSize(14).text(`Customer: ${order.customerName || "N/A"}`);
-      doc.text(`Table: ${order.tableNumber || "N/A"}`);
+      doc.fontSize(14).text(`Customer: ${order.customerName}`);
+      doc.text(`Phone: ${order.phone || "N/A"}`);
+      doc.text(`Table: ${order.tableNumber}`);
       doc.text(`Date: ${new Date().toLocaleString()}`);
 
       doc.moveDown();
       doc.text("Items Ordered:");
 
       order.cartItems.forEach((item) => {
-        doc.text(
-          `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
-        );
+        doc.text(`${item.name} x${item.quantity} = ₹${item.price * item.quantity}`);
       });
 
       doc.moveDown();
@@ -569,13 +568,16 @@ const generatePDFBill = (order) => {
         doc.fontSize(12).text(`Additional Info: ${order.AdditionalInformation}`);
       }
 
+      doc.moveDown(2);
+      doc.text("Thank you for dining with us!", { align: "center" });
+
       doc.end();
 
       stream.on("finish", () => {
         resolve({
           fileName,
           filePath,
-          fileUrl: `/bills/${fileName}`   // ⭐ ONLY THIS IS IMPORTANT
+          fileUrl: `/bills/${fileName}`
         });
       });
 
@@ -629,7 +631,7 @@ app.post("/send-otp", async (req, res) => {
         to: phone,
       });
     } else {
-      console.log("OTP:", otp);
+      console.log("Twilio not configured, OTP:", otp);
     }
 
     res.json({
@@ -638,9 +640,11 @@ app.post("/send-otp", async (req, res) => {
     });
 
   } catch (error) {
+    console.log("OTP ERROR:", error);
+
     res.json({
       success: true,
-      message: "OTP generated (Twilio issue)",
+      message: "OTP generated (Twilio limit reached)",
     });
   }
 });
@@ -766,7 +770,7 @@ app.post("/verify-razorpay-payment", (req, res) => {
 });
 
 /* =========================
-   PLACE ORDER (FIXED)
+   PLACE ORDER (FIXED PDF RESPONSE)
 ========================= */
 app.post("/place-order", async (req, res) => {
   try {
@@ -800,7 +804,7 @@ app.post("/place-order", async (req, res) => {
     res.json({
       success: true,
       message: "Order placed successfully",
-      billPath: pdf.fileUrl,   // ⭐ IMPORTANT FIX
+billPath: pdf.fileUrl,
       paymentMethod,
       customer: {
         name: customerName,
