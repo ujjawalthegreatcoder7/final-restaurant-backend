@@ -488,6 +488,9 @@ require("dotenv").config();
 const Menu = require("./models/menu");
 
 const app = express();
+
+app.use("/bills", express.static(path.join(__dirname, "bills")));
+
 const dns = require("dns");
 
 /* FORCE IPV4 */
