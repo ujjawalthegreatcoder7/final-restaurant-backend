@@ -976,19 +976,27 @@ const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
 });
 
 
-app.get("/bills/:filename", (req, res) => {
+app.get("/bills/*", (req, res) => {
   try {
-    const filePath = path.join(__dirname, "bills", req.params.filename);
+    let fullPath = req.params[0];
+
+    console.log("Incoming weird path:", fullPath);
+
+    // 🔥 extract only filename from ANYTHING
+    const fileName = fullPath.split("/").pop();
+
+    const filePath = path.join(__dirname, "bills", fileName);
 
     res.sendFile(filePath, (err) => {
       if (err) {
         console.log("File send error:", err);
-        res.status(404).json({
+        return res.status(404).json({
           success: false,
           message: "Bill not found",
         });
       }
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -997,6 +1005,8 @@ app.get("/bills/:filename", (req, res) => {
     });
   }
 });
+
+
 /* =========================
    SERVER
 ========================= */
