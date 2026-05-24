@@ -976,18 +976,18 @@ const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
 });
 
 
-app.get("/bills/*", (req, res) => {
+app.get("/bills/:filename", (req, res) => {
   try {
-    let fullPath = req.params[0];
+    let fileName = req.params.filename;
 
-    console.log("Incoming weird path:", fullPath);
-
-    // 🔥 extract only filename from ANYTHING
-    const fileName = fullPath.split("/").pop();
+    // 🔥 safety: agar full path aa gaya ho to clean kar do
+    if (fileName.includes("/")) {
+      fileName = fileName.split("/").pop();
+    }
 
     const filePath = path.join(__dirname, "bills", fileName);
 
-    res.sendFile(filePath, (err) => {
+    return res.sendFile(filePath, (err) => {
       if (err) {
         console.log("File send error:", err);
         return res.status(404).json({
@@ -1005,6 +1005,7 @@ app.get("/bills/*", (req, res) => {
     });
   }
 });
+
 
 
 /* =========================
