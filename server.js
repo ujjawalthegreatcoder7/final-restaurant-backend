@@ -103,7 +103,6 @@
 
 //       doc.end();
 
-//       stream.on("finish", () => resolve(filePath));
 
 //     } catch (error) {
 //       reject(error);
@@ -484,7 +483,6 @@ const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
-
 const Menu = require("./models/menu");
 
 const app = express();
@@ -494,7 +492,7 @@ const dns = require("dns");
 /* FORCE IPV4 */
 dns.setDefaultResultOrder("ipv4first");
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
+app.use("/bills", express.static(path.join(__dirname, "bills")));
 app.use(cors());
 app.use(express.json());
 
@@ -580,7 +578,7 @@ const generatePDFBill = (order) => {
 
       doc.end();
 
-      stream.on("finish", () => resolve(filePath));
+      stream.on("finish", () => resolve(fileName));
 
     } catch (error) {
       reject(error);
@@ -943,10 +941,8 @@ Order Time: ${new Date().toLocaleString()}
     /* =========================
        CREATE PUBLIC URL (IMPORTANT FIX)
     ========================= */
-const pdfUrl = `bills/${pdfFileName}`;
-    /* =========================
-       SUCCESS RESPONSE
-    ========================= */
+const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
+   /* ============== */
     res.json({
       success: true,
       message: "Order placed successfully",
@@ -976,8 +972,8 @@ const pdfUrl = `bills/${pdfFileName}`;
 });
 
 
-app.get("bills/:pdfFileName", (req, res) => {
-  try {
+app.get("/bills/:filename", (req, res) => {
+    try {
     let fileName = req.params.filename;
 
     // 🔥 safety: agar full path aa gaya ho to clean kar do
