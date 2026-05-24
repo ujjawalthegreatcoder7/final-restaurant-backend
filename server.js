@@ -1,3 +1,479 @@
+// const express = require("express");
+// const mongoose = require("mongoose");
+// const cors = require("cors");
+// const twilio = require("twilio");
+// const Razorpay = require("razorpay");
+// const crypto = require("crypto");
+// const PDFDocument = require("pdfkit");
+// const fs = require("fs");
+// const path = require("path");
+// require("dotenv").config();
+
+// const Menu = require("./models/menu");
+
+// const app = express();
+// const dns = require("dns");
+
+// /* FORCE IPV4 */
+// dns.setDefaultResultOrder("ipv4first");
+// dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
+// app.use(cors());
+// app.use(express.json());
+
+// /* =========================
+//    TWILIO CONFIG
+// ========================= */
+// let client;
+// try {
+//   client = twilio(
+//     process.env.TWILIO_SID,
+//     process.env.TWILIO_AUTH_TOKEN
+//   );
+// } catch (err) {
+//   console.log("Twilio init failed:", err.message);
+// }
+
+// const TWILIO_NUMBER = process.env.TWILIO_NUMBER;
+
+// /* =========================
+//    RAZORPAY CONFIG
+// ========================= */
+// const razorpay = new Razorpay({
+//   key_id: process.env.RAZORPAY_KEY_ID,
+//   key_secret: process.env.RAZORPAY_KEY_SECRET,
+// });
+
+// /* OTP STORAGE */
+// const otpStore = new Map();
+
+// /* =========================
+//    PDF BILL GENERATOR
+// ========================= */
+// const generatePDFBill = (order) => {
+//   return new Promise((resolve, reject) => {
+//     try {
+//       const billsDir = path.join(__dirname, "bills");
+
+//       if (!fs.existsSync(billsDir)) {
+//         fs.mkdirSync(billsDir);
+//       }
+
+//       const fileName = `bill_${Date.now()}.pdf`;
+//       const filePath = path.join(billsDir, fileName);
+
+//       const doc = new PDFDocument();
+//       const stream = fs.createWriteStream(filePath);
+
+//       doc.pipe(stream);
+
+//       doc.fontSize(22).text("Restaurant Bill", {
+//         align: "center",
+//       });
+
+//       doc.moveDown();
+//       doc.fontSize(14).text(`Customer: ${order.customerName}`);
+//       doc.text(`Phone: ${order.phone}`);
+//       doc.text(`Table: ${order.tableNumber}`);
+//       doc.text(`Date: ${new Date().toLocaleString()}`);
+
+//       doc.moveDown();
+//       doc.text("Items Ordered:");
+
+//       order.cartItems.forEach((item) => {
+//         doc.text(
+//           `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
+//         );
+//       });
+
+//       doc.moveDown();
+//       doc.fontSize(16).text(`Total Bill: ₹${order.totalPrice}`);
+
+//       if (order.AdditionalInformation) {
+//         doc.moveDown();
+//         doc.fontSize(12).text(
+//           `Additional Info: ${order.AdditionalInformation}`
+//         );
+//       }
+
+//       doc.moveDown(2);
+//       doc.text("Thank you for dining with us!", {
+//         align: "center",
+//       });
+
+//       doc.end();
+
+//       stream.on("finish", () => resolve(filePath));
+
+//     } catch (error) {
+//       reject(error);
+//     }
+//   });
+// };
+
+// /* =========================
+//    BILL SMS
+// ========================= */
+// const sendBillSMS = async (phone, order) => {
+//   try {
+//     if (client) {
+//       const billMessage = `
+// Thank you ${order.customerName}!
+
+// Order Confirmed
+// Table: ${order.tableNumber}
+// Total Bill: ₹${order.totalPrice}
+
+// Enjoy your meal!
+// `;
+
+//       await client.messages.create({
+//         body: billMessage,
+//         from: TWILIO_NUMBER,
+//         to: phone,
+//       });
+
+//       console.log("Bill SMS sent successfully");
+//     }
+//   } catch (error) {
+//     console.log("Bill SMS failed:", error.message);
+//   }
+// };
+
+// /* =========================
+//    MONGODB
+// ========================= */
+// mongoose.connect(process.env.MONGO_URI)
+//   .then(() => console.log("MongoDB Connected"))
+//   .catch((err) => console.log(err));
+
+// /* =========================
+//    MENU API
+// ========================= */
+// app.get("/menu", async (req, res) => {
+//   try {
+//     const menuItems = await Menu.find();
+//     res.json(menuItems);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+// /* =========================
+//    SEND OTP
+// ========================= */
+// app.post("/send-otp", async (req, res) => {
+//   try {
+//     let { phone } = req.body;
+
+//     if (!phone) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Phone required",
+//       });
+//     }
+
+//     if (!phone.startsWith("+")) {
+//       phone = "+91" + phone;
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000);
+//     const expiresAt = Date.now() + 5 * 60 * 1000;
+
+//     otpStore.set(phone, { otp, expiresAt });
+
+//     if (client) {
+//       await client.messages.create({
+//         body: `Your OTP is: ${otp}`,
+//         from: TWILIO_NUMBER,
+//         to: phone,
+//       });
+//     } else {
+//       console.log("Twilio not configured, OTP:", otp);
+//     }
+
+//     res.json({
+//       success: true,
+//       message: "OTP sent successfully",
+//     });
+
+//   } catch (error) {
+//     console.log("OTP ERROR:", error);
+
+//     res.json({
+//       success: true,
+//       message: "OTP generated (Twilio limit reached)",
+//     });
+//   }
+// });
+
+// /* =========================
+//    VERIFY OTP
+// ========================= */
+// app.post("/verify-otp", (req, res) => {
+//   try {
+//     let { phone, otp } = req.body;
+
+//     if (!phone || !otp) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Phone and OTP required",
+//       });
+//     }
+
+//     if (!phone.startsWith("+")) {
+//       phone = "+91" + phone;
+//     }
+
+//     const record = otpStore.get(phone);
+
+//     if (!record) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "OTP not found",
+//       });
+//     }
+
+//     if (Date.now() > record.expiresAt) {
+//       otpStore.delete(phone);
+//       return res.status(400).json({
+//         success: false,
+//         message: "OTP expired",
+//       });
+//     }
+
+//     if (Number(otp) !== record.otp) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid OTP",
+//       });
+//     }
+
+//     otpStore.delete(phone);
+
+//     res.json({
+//       success: true,
+//       message: "Phone verified successfully",
+//     });
+
+//   } catch (error) {
+//     console.log(error);
+//     res.status(500).json({
+//       success: false,
+//       message: "OTP verification failed",
+//     });
+//   }
+// });
+
+// /* =========================
+//    CREATE RAZORPAY ORDER
+// ========================= */
+// app.post("/create-razorpay-order", async (req, res) => {
+//   try {
+//     const { amount } = req.body;
+
+//     if (!amount) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Amount is required",
+//       });
+//     }
+
+//     const options = {
+//       amount: Number(amount) * 100,
+//       currency: "INR",
+//       receipt: `receipt_${Date.now()}`,
+//     };
+
+//     const order = await razorpay.orders.create(options);
+
+//     res.json({
+//       success: true,
+//       orderId: order.id,
+//       amount: order.amount,
+//       currency: order.currency,
+//       key: process.env.RAZORPAY_KEY_ID,
+//     });
+
+//   } catch (error) {
+//     console.log("RAZORPAY ORDER ERROR:", error);
+
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// });
+// /* =========================
+//    VERIFY RAZORPAY PAYMENT
+// ========================= */
+// app.post("/verify-razorpay-payment", (req, res) => {
+//   try {
+//     const {
+//       razorpay_order_id,
+//       razorpay_payment_id,
+//       razorpay_signature,
+//     } = req.body;
+
+//     const body = razorpay_order_id + "|" + razorpay_payment_id;
+
+//     const expectedSignature = crypto
+//       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+//       .update(body.toString())
+//       .digest("hex");
+
+//     if (expectedSignature === razorpay_signature) {
+//       res.json({
+//         success: true,
+//         message: "Payment verified successfully",
+//       });
+//     } else {
+//       res.status(400).json({
+//         success: false,
+//         message: "Invalid payment signature",
+//       });
+//     }
+
+//   } catch (error) {
+//     console.log("PAYMENT VERIFY ERROR:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Payment verification failed",
+//     });
+//   }
+// });
+
+// /* =========================
+//    PLACE ORDER
+// ========================= */
+// app.post("/place-order", async (req, res) => {
+//   try {
+//     const {
+//       customerName,
+//       phone,
+//       tableNumber,
+//       cartItems,
+//       AdditionalInformation,
+//       totalPrice,
+//       paymentMethod,
+//     } = req.body;
+
+//     /* VALIDATION */
+//     if (
+//       !customerName ||
+//       !phone ||
+//       !tableNumber ||
+//       !cartItems ||
+//       cartItems.length === 0
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Missing required data",
+//       });
+//     }
+
+//     let formattedPhone = phone;
+
+//     if (!formattedPhone.startsWith("+")) {
+//       formattedPhone = "+91" + formattedPhone;
+//     }
+
+//     /* =========================
+//        FULL CART DETAILS
+//     ========================= */
+//     const orderDetails = cartItems
+//       .map(
+//         (item, index) =>
+//           `${index + 1}. ${item.name}
+//    Quantity: ${item.quantity}
+//    Price Per Item: ₹${item.price}
+//    Total Item Cost: ₹${item.price * item.quantity}`
+//       )
+//       .join("\n\n");
+
+//     /* =========================
+//        RENDER LOGS
+//     ========================= */
+//     console.log(`
+// ======================================================
+//                 NEW ORDER RECEIVED
+// ======================================================
+
+// Customer Name : ${customerName}
+// Phone Number  : ${formattedPhone}
+// Table Number  : ${tableNumber}
+// Payment Method: ${paymentMethod}
+
+// Additional Info:
+// ${AdditionalInformation || "None"}
+
+// ------------------ CART ITEMS ------------------------
+
+// ${orderDetails}
+
+// ------------------------------------------------------
+
+// TOTAL BILL: ₹${totalPrice}
+
+// Order Time: ${new Date().toLocaleString()}
+
+// ======================================================
+// `);
+
+//     /* =========================
+//        GENERATE PDF BILL
+//     ========================= */
+//     const pdfPath = await generatePDFBill({
+//       customerName,
+//       phone: formattedPhone,
+//       tableNumber,
+//       cartItems,
+//       AdditionalInformation,
+//       totalPrice,
+//     });
+
+//     console.log("PDF Bill Generated:", pdfPath);
+
+//     /* =========================
+//        SEND CUSTOMER BILL SMS
+//     ========================= */
+//     await sendBillSMS(formattedPhone, {
+//       customerName,
+//       tableNumber,
+//       totalPrice,
+//     });
+
+//     /* =========================
+//        SUCCESS RESPONSE
+//     ========================= */
+//     res.json({
+//       success: true,
+//       message: "Order placed successfully & bill sent",
+//       billPath: pdfPath,
+//       orderedItems: cartItems,
+//       paymentMethod,
+//     });
+
+//   } catch (error) {
+//     console.log("ORDER ERROR:", error);
+
+//     res.status(500).json({
+//       success: false,
+//       message: "Order failed",
+//       error: error.message,
+//     });
+//   }
+// });
+
+// /* =========================
+//    SERVER
+// ========================= */
+// app.listen(5000, () => {
+//   console.log("Server running on port 5000");
+// });
+
+
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -158,6 +634,20 @@ app.get("/menu", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// GOOGLE AUTHENTICATION
+  let users = [];
+  app.post( "/saveuser", ( req,res ) => {
+    const user = req.body;
+
+    console.log( "Recieved user : ", user );
+
+    users.push(user);
+    res.json({
+      message: " User Saved successfully ",
+      users,
+    });
+  } );
 
 /* =========================
    SEND OTP
@@ -349,33 +839,25 @@ app.post("/verify-razorpay-payment", (req, res) => {
 app.post("/place-order", async (req, res) => {
   try {
     const {
-      customerName,
-      phone,
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
       paymentMethod,
+      customerName,
+      customerEmail,
+      customerPhoto,
+      customerUID,
     } = req.body;
 
-    /* VALIDATION */
-    if (
-      !customerName ||
-      !phone ||
-      !tableNumber ||
-      !cartItems ||
-      cartItems.length === 0
-    ) {
+    /* =========================
+       VALIDATION
+    ========================= */
+    if (!tableNumber || !cartItems || cartItems.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Missing required data",
       });
-    }
-
-    let formattedPhone = phone;
-
-    if (!formattedPhone.startsWith("+")) {
-      formattedPhone = "+91" + formattedPhone;
     }
 
     /* =========================
@@ -385,22 +867,28 @@ app.post("/place-order", async (req, res) => {
       .map(
         (item, index) =>
           `${index + 1}. ${item.name}
-   Quantity: ${item.quantity}
-   Price Per Item: ₹${item.price}
-   Total Item Cost: ₹${item.price * item.quantity}`
+Quantity: ${item.quantity}
+Price Per Item: ₹${item.price}
+Total Item Cost: ₹${item.price * item.quantity}`
       )
       .join("\n\n");
 
     /* =========================
-       RENDER LOGS
+       ORDER LOGS
     ========================= */
     console.log(`
 ======================================================
                 NEW ORDER RECEIVED
 ======================================================
 
-Customer Name : ${customerName}
-Phone Number  : ${formattedPhone}
+CUSTOMER DETAILS
+------------------------------------------------------
+Name   : ${customerName || "N/A"}
+Email  : ${customerEmail || "N/A"}
+UID    : ${customerUID || "N/A"}
+
+------------------------------------------------------
+
 Table Number  : ${tableNumber}
 Payment Method: ${paymentMethod}
 
@@ -424,34 +912,32 @@ Order Time: ${new Date().toLocaleString()}
        GENERATE PDF BILL
     ========================= */
     const pdfPath = await generatePDFBill({
-      customerName,
-      phone: formattedPhone,
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
+      customerName,
+      customerEmail,
     });
 
     console.log("PDF Bill Generated:", pdfPath);
-
-    /* =========================
-       SEND CUSTOMER BILL SMS
-    ========================= */
-    await sendBillSMS(formattedPhone, {
-      customerName,
-      tableNumber,
-      totalPrice,
-    });
 
     /* =========================
        SUCCESS RESPONSE
     ========================= */
     res.json({
       success: true,
-      message: "Order placed successfully & bill sent",
+      message: "Order placed successfully",
       billPath: pdfPath,
       orderedItems: cartItems,
       paymentMethod,
+
+      customer: {
+        name: customerName,
+        email: customerEmail,
+        photo: customerPhoto,
+        uid: customerUID,
+      },
     });
 
   } catch (error) {
@@ -464,253 +950,9 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
-
 /* =========================
    SERVER
 ========================= */
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
-
-// const express = require("express");
-// const mongoose = require("mongoose");
-// const cors = require("cors");
-// const axios = require("axios");
-// require("dotenv").config();
-
-// const Menu = require("./models/menu");
-
-// const app = express();
-// const dns = require("dns");
-
-// /* FORCE IPV4 */
-// dns.setDefaultResultOrder("ipv4first");
-
-// dns.setServers([
-//   "1.1.1.1",
-//   "8.8.8.8",
-// ]);
-
-// app.use(cors());
-// app.use(express.json());
-
-// /* =========================
-//    MSG91 CONFIG
-// ========================= */
-// const MSG91_AUTH_KEY = process.env.MSG91_AUTH_KEY;
-// const MSG91_TEMPLATE_ID = process.env.MSG91_TEMPLATE_ID;
-
-// /* OTP STORAGE */
-// const otpStore = new Map();
-
-// /* =========================
-//    MONGODB
-// ========================= */
-// mongoose.connect(process.env.MONGO_URI)
-//   .then(() => console.log("MongoDB Connected"))
-//   .catch((err) => console.log(err));
-
-// /* =========================
-//    MENU API
-// ========================= */
-// app.get("/menu", async (req, res) => {
-//   try {
-//     const menuItems = await Menu.find();
-//     res.json(menuItems);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-
-// /* =========================
-//    SEND OTP
-// ========================= */
-// app.post("/send-otp", async (req, res) => {
-//   try {
-//     let { phone } = req.body;
-
-//     if (!phone) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Phone required",
-//       });
-//     }
-
-//     // Normalize phone
-//     if (phone.startsWith("+91")) {
-//       phone = phone.replace("+91", "");
-//     }
-
-//     const fullPhone = "+91" + phone;
-
-//     const otp = Math.floor(100000 + Math.random() * 900000);
-//     const expiresAt = Date.now() + 5 * 60 * 1000;
-
-//     otpStore.set(fullPhone, { otp, expiresAt });
-
-//     /* SEND OTP USING MSG91 */
-// await axios.get("https://control.msg91.com/api/v5/otp", {
-//   params: {
-//     template_id: MSG91_TEMPLATE_ID,
-//     mobile: `91${phone}`,
-//     authkey: MSG91_AUTH_KEY,
-//     otp: otp
-//   }
-// });
-//     res.json({
-//       success: true,
-//       message: "OTP sent successfully",
-//     });
-
-//   } catch (error) {
-//     console.log("OTP ERROR:", error.response?.data || error.message);
-
-//     res.status(500).json({
-//       success: false,
-//       message: "Failed to send OTP",
-//     });
-//   }
-// });
-
-// /* =========================
-//    VERIFY OTP
-// ========================= */
-// app.post("/verify-otp", (req, res) => {
-//   try {
-//     let { phone, otp } = req.body;
-
-//     if (!phone || !otp) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Phone and OTP required",
-//       });
-//     }
-
-//     if (!phone.startsWith("+")) {
-//       phone = "+91" + phone;
-//     }
-
-//     const record = otpStore.get(phone);
-
-//     if (!record) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "OTP not found",
-//       });
-//     }
-
-//     if (Date.now() > record.expiresAt) {
-//       otpStore.delete(phone);
-//       return res.status(400).json({
-//         success: false,
-//         message: "OTP expired",
-//       });
-//     }
-
-//     if (Number(otp) !== record.otp) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Invalid OTP",
-//       });
-//     }
-
-//     otpStore.delete(phone);
-
-//     res.json({
-//       success: true,
-//       message: "Phone verified successfully",
-//     });
-
-//   } catch (error) {
-//     console.log(error);
-//     res.status(500).json({
-//       success: false,
-//       message: "OTP verification failed",
-//     });
-//   }
-// });
-
-// /* =========================
-//    PLACE ORDER
-// ========================= */
-// app.post("/place-order", async (req, res) => {
-//   try {
-//     const {
-//       customerName,
-//       phone,
-//       tableNumber,
-//       cartItems,
-//       AdditionalInformation,
-//       totalPrice
-//     } = req.body;
-
-//     if (!phone || !cartItems || cartItems.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Missing data",
-//       });
-//     }
-
-//     let formattedPhone = phone;
-
-//     if (!formattedPhone.startsWith("+")) {
-//       formattedPhone = "+91" + formattedPhone;
-//     }
-
-//     // OTP verification disabled temporarily
-//     // if (otpStore.has(formattedPhone)) {
-//     //   return res.status(400).json({
-//     //     success: false,
-//     //     message: "Please verify OTP firstserver",
-//     //   });
-//     // }
-
-//     const orderDetails = cartItems
-//       .map(
-//         (item) =>
-//           `${item.name} | Qty: ${item.quantity} | ₹${item.price}`
-//       )
-//       .join("\n");
-
-//     /* ORDER LOG */
-//     console.log(`
-// =========================
-
-// NEW ORDER RECEIVED
-// Customer: ${customerName}
-// Phone: ${phone}
-// Table: ${tableNumber}
-
-// Additional Information : ${AdditionalInformation}
-
-// Items:
-// ${orderDetails}
-
-// Total: ₹${totalPrice}
-
-// =========================
-// `);
-
-//     /* SUCCESS WITHOUT EMAIL */
-//     res.json({
-//       success: true,
-//       message: "Order placed successfully",
-//     });
-
-//   } catch (error) {
-//     console.log("ORDER ERROR:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Order failed",
-//     });
-//   }
-// });
-
-// /* =========================
-//    SERVER
-// ========================= */
-// app.listen(5000, () => {
-//   console.log("Server running on port 5000");
-// });
-
-
