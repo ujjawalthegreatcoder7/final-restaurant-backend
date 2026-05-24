@@ -976,30 +976,19 @@ const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
 });
 
 
-app.get("/bills/:filename(*)", (req, res) => {
+app.get("/bills/:filename", (req, res) => {
   try {
-    let fileName = req.params.filename;
-
-    console.log("Incoming bill request:", fileName);
-
-    // 🔥 FIX 1: agar full path aa gaya ho to sirf filename nikaalo
-    if (fileName.includes("/")) {
-      fileName = fileName.split("/").pop();
-    }
-
-    const filePath = path.join(__dirname, "bills", fileName);
+    const filePath = path.join(__dirname, "bills", req.params.filename);
 
     res.sendFile(filePath, (err) => {
       if (err) {
         console.log("File send error:", err);
-
-        return res.status(404).json({
+        res.status(404).json({
           success: false,
           message: "Bill not found",
         });
       }
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -1007,7 +996,8 @@ app.get("/bills/:filename(*)", (req, res) => {
       error: error.message,
     });
   }
-});/* =========================
+});
+/* =========================
    SERVER
 ========================= */
 app.listen(5000, () => {
