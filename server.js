@@ -943,7 +943,7 @@ Order Time: ${new Date().toLocaleString()}
     /* =========================
        CREATE PUBLIC URL (IMPORTANT FIX)
     ========================= */
-const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
+const pdfUrl = `bills/${pdfFileName}`;
     /* =========================
        SUCCESS RESPONSE
     ========================= */
@@ -976,7 +976,7 @@ const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
 });
 
 
-app.get("/bills/:filename", (req, res) => {
+app.get("bills/:pdfFileName", (req, res) => {
   try {
     let fileName = req.params.filename;
 
