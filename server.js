@@ -489,10 +489,10 @@ const Menu = require("./models/menu");
 
 const app = express();
 
-/* STATIC BILL FOLDER */
 app.use("/bills", express.static(path.join(__dirname, "bills")));
 
 const dns = require("dns");
+/* FORCE IPV4 */
 dns.setDefaultResultOrder("ipv4first");
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
@@ -526,7 +526,7 @@ const razorpay = new Razorpay({
 const otpStore = new Map();
 
 /* =========================
-   PDF GENERATOR (FIXED)
+   PDF BILL GENERATOR
 ========================= */
 const generatePDFBill = (order) => {
   return new Promise((resolve, reject) => {
@@ -545,11 +545,13 @@ const generatePDFBill = (order) => {
 
       doc.pipe(stream);
 
-      doc.fontSize(22).text("Restaurant Bill", { align: "center" });
+      doc.fontSize(22).text("Restaurant Bill", {
+        align: "center",
+      });
 
       doc.moveDown();
       doc.fontSize(14).text(`Customer: ${order.customerName}`);
-      doc.text(`Phone: ${order.phone || "N/A"}`);
+      doc.text(`Phone: ${order.phone}`);
       doc.text(`Table: ${order.tableNumber}`);
       doc.text(`Date: ${new Date().toLocaleString()}`);
 
@@ -557,7 +559,9 @@ const generatePDFBill = (order) => {
       doc.text("Items Ordered:");
 
       order.cartItems.forEach((item) => {
-        doc.text(`${item.name} x${item.quantity} = ₹${item.price * item.quantity}`);
+        doc.text(
+          `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
+        );
       });
 
       doc.moveDown();
@@ -565,29 +569,61 @@ const generatePDFBill = (order) => {
 
       if (order.AdditionalInformation) {
         doc.moveDown();
-        doc.fontSize(12).text(`Additional Info: ${order.AdditionalInformation}`);
+        doc.fontSize(12).text(
+          `Additional Info: ${order.AdditionalInformation}`
+        );
       }
 
       doc.moveDown(2);
-      doc.text("Thank you for dining with us!", { align: "center" });
+      doc.text("Thank you for dining with us!", {
+        align: "center",
+      });
 
       doc.end();
 
-      stream.on("finish", () => {
-        resolve({
-          fileName,
-          filePath,
-          fileUrl: `/bills/${fileName}`
-        });
-      });
-
-      stream.on("error", reject);
+      stream.on("finish", () => resolve(filePath));
 
     } catch (error) {
       reject(error);
     }
   });
 };
+
+/* =========================
+   BILL SMS
+========================= */
+const sendBillSMS = async (phone, order) => {
+  try {
+    if (client) {
+      const billMessage = `
+Thank you ${order.customerName}!
+
+Order Confirmed
+Table: ${order.tableNumber}
+Total Bill: ₹${order.totalPrice}
+
+Enjoy your meal!
+`;
+
+      await client.messages.create({
+        body: billMessage,
+        from: TWILIO_NUMBER,
+        to: phone,
+      });
+
+      console.log("Bill SMS sent successfully");
+    }
+  } catch (error) {
+    console.log("Bill SMS failed:", error.message);
+  }
+};
+
+/* =========================
+   MONGODB
+========================= */
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
 /* =========================
    MENU API
@@ -600,6 +636,7 @@ app.get("/menu", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 /* =========================
    SEND OTP
@@ -699,6 +736,7 @@ app.post("/verify-otp", (req, res) => {
     });
 
   } catch (error) {
+    console.log(error);
     res.status(500).json({
       success: false,
       message: "OTP verification failed",
@@ -707,11 +745,18 @@ app.post("/verify-otp", (req, res) => {
 });
 
 /* =========================
-   RAZORPAY ORDER
+   CREATE RAZORPAY ORDER
 ========================= */
 app.post("/create-razorpay-order", async (req, res) => {
   try {
     const { amount } = req.body;
+
+    if (!amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount is required",
+      });
+    }
 
     const options = {
       amount: Number(amount) * 100,
@@ -730,15 +775,16 @@ app.post("/create-razorpay-order", async (req, res) => {
     });
 
   } catch (error) {
+    console.log("RAZORPAY ORDER ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 });
-
 /* =========================
-   VERIFY PAYMENT
+   VERIFY RAZORPAY PAYMENT
 ========================= */
 app.post("/verify-razorpay-payment", (req, res) => {
   try {
@@ -752,16 +798,23 @@ app.post("/verify-razorpay-payment", (req, res) => {
 
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body)
+      .update(body.toString())
       .digest("hex");
 
     if (expectedSignature === razorpay_signature) {
-      res.json({ success: true, message: "Payment verified successfully" });
+      res.json({
+        success: true,
+        message: "Payment verified successfully",
+      });
     } else {
-      res.status(400).json({ success: false, message: "Invalid signature" });
+      res.status(400).json({
+        success: false,
+        message: "Invalid payment signature",
+      });
     }
 
   } catch (error) {
+    console.log("PAYMENT VERIFY ERROR:", error);
     res.status(500).json({
       success: false,
       message: "Payment verification failed",
@@ -769,43 +822,143 @@ app.post("/verify-razorpay-payment", (req, res) => {
   }
 });
 
-/* =========================
-   PLACE ORDER (FIXED PDF RESPONSE)
-========================= */
-app.post("/place-order", async (req, res) => {
+
+// GOOGLE
+app.post("/saveuser", (req, res) => {
+
   try {
+
+    // OPTIONAL API
+    // USER SAVE SUCCESS RESPONSE
+
+    res.json({
+      success: true,
+      message: "User saved successfully",
+    });
+
+  } catch (error) {
+
+    console.log("SAVE USER ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to save user",
+    });
+
+  }
+
+});
+
+
+/* =========================
+   PLACE ORDER
+========================= */
+
+app.post("/place-order", async (req, res) => {
+
+  try {
+
     const {
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
       paymentMethod,
+
+      // 🔥 GOOGLE USER DATA
       customerUID,
       customerName,
       customerEmail,
       customerPhoto,
+
     } = req.body;
 
-    if (!tableNumber || !cartItems || cartItems.length === 0) {
+    /* =========================
+       VALIDATION
+    ========================= */
+    if (
+      !tableNumber ||
+      !cartItems ||
+      cartItems.length === 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Missing required data",
       });
     }
 
-    const pdf = await generatePDFBill({
+    /* =========================
+       FULL CART DETAILS
+    ========================= */
+    const orderDetails = cartItems
+      .map(
+        (item, index) =>
+          `${index + 1}. ${item.name}
+Quantity: ${item.quantity}
+Price Per Item: ₹${item.price}
+Total Item Cost: ₹${item.price * item.quantity}`
+      )
+      .join("\n\n");
+
+    /* =========================
+       RENDER LOGS
+    ========================= */
+    console.log(`
+======================================================
+                NEW ORDER RECEIVED
+======================================================
+
+CUSTOMER DETAILS
+------------------------------------------------------
+Name   : ${customerName || "N/A"}
+Email  : ${customerEmail || "N/A"}
+UID    : ${customerUID || "N/A"}
+
+------------------------------------------------------
+
+Table Number  : ${tableNumber}
+Payment Method: ${paymentMethod}
+
+Additional Info:
+${AdditionalInformation || "None"}
+
+------------------ CART ITEMS ------------------------
+
+${orderDetails}
+
+------------------------------------------------------
+
+TOTAL BILL: ₹${totalPrice}
+
+Order Time: ${new Date().toLocaleString()}
+
+======================================================
+`);
+
+    /* =========================
+       GENERATE PDF BILL
+    ========================= */
+    const pdfPath = await generatePDFBill({
       customerName,
+      customerEmail,
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
     });
 
+    console.log("PDF Bill Generated:", pdfPath);
+
+    /* =========================
+       SUCCESS RESPONSE
+    ========================= */
     res.json({
       success: true,
       message: "Order placed successfully",
-      billPath: pdf.fileUrl,   // ⭐ IMPORTANT FIX
+      billPath: pdfPath,
+      orderedItems: cartItems,
       paymentMethod,
+
       customer: {
         name: customerName,
         email: customerEmail,
@@ -815,14 +968,18 @@ app.post("/place-order", async (req, res) => {
     });
 
   } catch (error) {
+
+    console.log("ORDER ERROR:", error);
+
     res.status(500).json({
       success: false,
       message: "Order failed",
       error: error.message,
     });
-  }
-});
 
+  }
+
+});
 /* =========================
    SERVER
 ========================= */
