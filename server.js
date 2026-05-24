@@ -635,19 +635,6 @@ app.get("/menu", async (req, res) => {
   }
 });
 
-// GOOGLE AUTHENTICATION
-  let users = [];
-  app.post( "/saveuser", ( req,res ) => {
-    const user = req.body;
-
-    console.log( "Recieved user : ", user );
-
-    users.push(user);
-    res.json({
-      message: " User Saved successfully ",
-      users,
-    });
-  } );
 
 /* =========================
    SEND OTP
@@ -833,27 +820,65 @@ app.post("/verify-razorpay-payment", (req, res) => {
   }
 });
 
+
+// GOOGLE
+app.post("/saveuser", (req, res) => {
+
+  try {
+
+    // OPTIONAL API
+    // USER SAVE SUCCESS RESPONSE
+
+    res.json({
+      success: true,
+      message: "User saved successfully",
+    });
+
+  } catch (error) {
+
+    console.log("SAVE USER ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to save user",
+    });
+
+  }
+
+});
+
+
 /* =========================
    PLACE ORDER
 ========================= */
+
 app.post("/place-order", async (req, res) => {
+
   try {
+
     const {
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
       paymentMethod,
+
+      // 🔥 GOOGLE USER DATA
+      customerUID,
       customerName,
       customerEmail,
       customerPhoto,
-      customerUID,
+
     } = req.body;
 
     /* =========================
        VALIDATION
     ========================= */
-    if (!tableNumber || !cartItems || cartItems.length === 0) {
+    if (
+      !tableNumber ||
+      !cartItems ||
+      cartItems.length === 0
+    ) {
       return res.status(400).json({
         success: false,
         message: "Missing required data",
@@ -874,7 +899,7 @@ Total Item Cost: ₹${item.price * item.quantity}`
       .join("\n\n");
 
     /* =========================
-       ORDER LOGS
+       RENDER LOGS
     ========================= */
     console.log(`
 ======================================================
@@ -912,12 +937,12 @@ Order Time: ${new Date().toLocaleString()}
        GENERATE PDF BILL
     ========================= */
     const pdfPath = await generatePDFBill({
+      customerName,
+      customerEmail,
       tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
-      customerName,
-      customerEmail,
     });
 
     console.log("PDF Bill Generated:", pdfPath);
@@ -941,6 +966,7 @@ Order Time: ${new Date().toLocaleString()}
     });
 
   } catch (error) {
+
     console.log("ORDER ERROR:", error);
 
     res.status(500).json({
@@ -948,7 +974,9 @@ Order Time: ${new Date().toLocaleString()}
       message: "Order failed",
       error: error.message,
     });
+
   }
+
 });
 /* =========================
    SERVER
