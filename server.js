@@ -1060,9 +1060,10 @@ app.get("/yummyrestaurant/backend", (req, res) => {
   res.json({
     success: true,
     totalOrders: liveOrders.length,
-    orders: liveOrders.reverse(), // latest first
+    orders: [...liveOrders].reverse(), // ✅ SAFE COPY
   });
 });
+
 /* =========================
    SERVER
 ========================= */
