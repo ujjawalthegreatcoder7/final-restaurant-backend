@@ -847,6 +847,10 @@ app.post("/saveuser", (req, res) => {
 });
 
 
+/* =========================
+   PLACE ORDER
+========================= */
+
 app.post("/place-order", async (req, res) => {
   try {
     const {
@@ -873,20 +877,6 @@ app.post("/place-order", async (req, res) => {
     }
 
     /* =========================
-       BILL NUMBER (DAILY RESET)
-    ========================= */
-    const today = new Date().toDateString();
-
-    if (today !== lastBillDate) {
-      dailyBillCounter = 0; // reset every new day
-      lastBillDate = today;
-    }
-
-    dailyBillCounter++;
-
-    const billNumber = `${today.replace(/ /g, "-")}-${dailyBillCounter}`;
-
-    /* =========================
        CART FORMAT
     ========================= */
     const orderDetails = cartItems
@@ -906,8 +896,6 @@ Total Item Cost: ₹${item.price * item.quantity}`
 ======================================================
                 NEW ORDER RECEIVED
 ======================================================
-
-BILL NO: ${billNumber}
 
 CUSTOMER DETAILS
 ------------------------------------------------------
@@ -946,22 +934,20 @@ Order Time: ${new Date().toLocaleString()}
       cartItems,
       AdditionalInformation,
       totalPrice,
-      billNumber, // ✅ ADDED HERE
     });
 
     console.log("PDF Bill Generated:", pdfFileName);
 
     /* =========================
-       CREATE PUBLIC URL
+       CREATE PUBLIC URL (IMPORTANT FIX)
     ========================= */
-    const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
-
+const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
+   /* ============== */
     res.json({
       success: true,
       message: "Order placed successfully",
 
-      billUrl: pdfUrl,
-      billNumber: billNumber, // ✅ RETURNED TO FRONTEND
+      billUrl: pdfUrl,   // ✅ THIS IS THE FIXED LINE
 
       orderedItems: cartItems,
       paymentMethod,
@@ -984,6 +970,38 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
+
+
+app.get("/bills/:filename", (req, res) => {
+    try {
+    let fileName = req.params.filename;
+
+    // 🔥 safety: agar full path aa gaya ho to clean kar do
+    if (fileName.includes("/")) {
+      fileName = fileName.split("/").pop();
+    }
+
+    const filePath = path.join(__dirname, "bills", fileName);
+
+    return res.sendFile(filePath, (err) => {
+      if (err) {
+        console.log("File send error:", err);
+        return res.status(404).json({
+          success: false,
+          message: "Bill not found",
+        });
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
 
 
 /* =========================
