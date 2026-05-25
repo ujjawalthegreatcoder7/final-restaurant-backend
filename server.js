@@ -845,11 +845,7 @@ app.post("/saveuser", (req, res) => {
   }
 
 });
-
-
-/* =========================
-   PLACE ORDER
-========================= */
+let billCounter = 0;
 
 app.post("/place-order", async (req, res) => {
   try {
@@ -859,7 +855,6 @@ app.post("/place-order", async (req, res) => {
       AdditionalInformation,
       totalPrice,
       paymentMethod,
-
       customerUID,
       customerName,
       customerEmail,
@@ -875,6 +870,13 @@ app.post("/place-order", async (req, res) => {
         message: "Missing required data",
       });
     }
+
+    /* =========================
+       BILL NUMBER (+1 SYSTEM)
+    ========================= */
+    billCounter++;
+
+    const billNumber = `BILL-${String(billCounter).padStart(4, "0")}`;
 
     /* =========================
        CART FORMAT
@@ -896,6 +898,8 @@ Total Item Cost: ₹${item.price * item.quantity}`
 ======================================================
                 NEW ORDER RECEIVED
 ======================================================
+
+BILL NO: ${billNumber}
 
 CUSTOMER DETAILS
 ------------------------------------------------------
@@ -934,22 +938,23 @@ Order Time: ${new Date().toLocaleString()}
       cartItems,
       AdditionalInformation,
       totalPrice,
+      billNumber, // ✅ added
     });
-
 
     console.log("PDF Bill Generated:", pdfFileName);
 
     /* =========================
-       CREATE PUBLIC URL (IMPORTANT FIX)
+       CREATE PUBLIC URL
     ========================= */
-const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
-   /* ============== */
-    res.json({
+    const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
+
+    return res.json({
       success: true,
       message: "Order placed successfully",
 
-      billUrl: pdfUrl,   // ✅ THIS IS THE FIXED LINE
+      billNumber, // ✅ ADDED
 
+      billUrl: pdfUrl,
       orderedItems: cartItems,
       paymentMethod,
 
@@ -964,46 +969,13 @@ const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
   } catch (error) {
     console.log("ORDER ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Order failed",
       error: error.message,
     });
   }
 });
-
-
-app.get("/bills/:filename", (req, res) => {
-    try {
-    let fileName = req.params.filename;
-
-    // 🔥 safety: agar full path aa gaya ho to clean kar do
-    if (fileName.includes("/")) {
-      fileName = fileName.split("/").pop();
-    }
-
-    const filePath = path.join(__dirname, "bills", fileName);
-
-    return res.sendFile(filePath, (err) => {
-      if (err) {
-        console.log("File send error:", err);
-        return res.status(404).json({
-          success: false,
-          message: "Bill not found",
-        });
-      }
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-      error: error.message,
-    });
-  }
-});
-
-
 
 /* =========================
    SERVER
