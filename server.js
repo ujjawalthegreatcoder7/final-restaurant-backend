@@ -971,11 +971,11 @@ Total Item Cost: ₹${item.price * item.quantity}`
   liveOrders.push({
   billNumber,
   customerName,
-  customerEmail,
-  customerUID,
+  // customerEmail,
+  // customerUID,
   tableNumber,
   paymentMethod,
-  AdditionalInformation,
+  // AdditionalInformation,
   cartItems,
   totalPrice,
   time: new Date().toLocaleString(),
@@ -1055,7 +1055,7 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
-
+https://final-restaurant-backend-1.onrender.com/yummyrestaurant/backend
 app.get("/yummyrestaurant/backend", (req, res) => {
   res.json({
     success: true,
