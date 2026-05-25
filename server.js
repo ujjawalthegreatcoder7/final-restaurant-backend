@@ -845,7 +845,11 @@ app.post("/saveuser", (req, res) => {
   }
 
 });
-let billCounter = 0;
+
+
+/* =========================
+   PLACE ORDER
+========================= */
 
 app.post("/place-order", async (req, res) => {
   try {
@@ -855,6 +859,7 @@ app.post("/place-order", async (req, res) => {
       AdditionalInformation,
       totalPrice,
       paymentMethod,
+
       customerUID,
       customerName,
       customerEmail,
@@ -870,13 +875,6 @@ app.post("/place-order", async (req, res) => {
         message: "Missing required data",
       });
     }
-
-    /* =========================
-       BILL NUMBER (+1 SYSTEM)
-    ========================= */
-    billCounter++;
-
-    const billNumber = `BILL-${String(billCounter).padStart(4, "0")}`;
 
     /* =========================
        CART FORMAT
@@ -898,8 +896,6 @@ Total Item Cost: ₹${item.price * item.quantity}`
 ======================================================
                 NEW ORDER RECEIVED
 ======================================================
-
-BILL NO: ${billNumber}
 
 CUSTOMER DETAILS
 ------------------------------------------------------
@@ -938,23 +934,22 @@ Order Time: ${new Date().toLocaleString()}
       cartItems,
       AdditionalInformation,
       totalPrice,
-      billNumber, // ✅ added
     });
+
 
     console.log("PDF Bill Generated:", pdfFileName);
 
     /* =========================
-       CREATE PUBLIC URL
+       CREATE PUBLIC URL (IMPORTANT FIX)
     ========================= */
-    const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
-
-    return res.json({
+const pdfUrl = `${req.protocol}://${req.get("host")}/bills/${pdfFileName}`;
+   /* ============== */
+    res.json({
       success: true,
       message: "Order placed successfully",
 
-      billNumber, // ✅ ADDED
+      billUrl: pdfUrl,   // ✅ THIS IS THE FIXED LINE
 
-      billUrl: pdfUrl,
       orderedItems: cartItems,
       paymentMethod,
 
@@ -969,13 +964,46 @@ Order Time: ${new Date().toLocaleString()}
   } catch (error) {
     console.log("ORDER ERROR:", error);
 
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Order failed",
       error: error.message,
     });
   }
 });
+
+
+app.get("/bills/:filename", (req, res) => {
+    try {
+    let fileName = req.params.filename;
+
+    // 🔥 safety: agar full path aa gaya ho to clean kar do
+    if (fileName.includes("/")) {
+      fileName = fileName.split("/").pop();
+    }
+
+    const filePath = path.join(__dirname, "bills", fileName);
+
+    return res.sendFile(filePath, (err) => {
+      if (err) {
+        console.log("File send error:", err);
+        return res.status(404).json({
+          success: false,
+          message: "Bill not found",
+        });
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+});
+
+
 
 /* =========================
    SERVER
