@@ -846,8 +846,8 @@ app.post("/saveuser", (req, res) => {
 
 });
 
-let dailyBillCounter = 0;
-let lastBillDate = "";
+// let dailyBillCounter = 0;
+// let lastBillDate = "";
 
 app.post("/place-order", async (req, res) => {
   try {
