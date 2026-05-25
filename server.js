@@ -878,7 +878,7 @@ app.post("/place-order", async (req, res) => {
     const today = new Date().toDateString();
 
     if (today !== lastBillDate) {
-      let dailyBillCounter = 0; // reset every new day
+      dailyBillCounter = 0; // reset every new day
       lastBillDate = today;
     }
 
