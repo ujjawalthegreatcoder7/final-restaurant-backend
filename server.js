@@ -872,15 +872,40 @@ app.post("/place-order", async (req, res) => {
       });
     }
 
+app.post("/place-order", async (req, res) => {
+  try {
+    const {
+      tableNumber,
+      cartItems,
+      AdditionalInformation,
+      totalPrice,
+      paymentMethod,
+
+      customerUID,
+      customerName,
+      customerEmail,
+      customerPhoto,
+    } = req.body;
+
     /* =========================
-       BILL NUMBER (DAILY RESET)
+       VALIDATION
     ========================= */
-    let dailyBillCounter = 0;
-    let lastBillDate = new Date().toDateString();
+    if (!tableNumber || !cartItems || cartItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required data",
+      });
+    }
+
+    /* =========================
+       BILL NUMBER (DAILY RESET FIXED)
+    ========================= */
+
     const today = new Date().toDateString();
 
-    if (today !== lastBillDate) {
-      dailyBillCounter = 0; // reset every new day
+    // reset only once per day
+    if (lastBillDate !== today) {
+      dailyBillCounter = 0;
       lastBillDate = today;
     }
 
@@ -948,7 +973,7 @@ Order Time: ${new Date().toLocaleString()}
       cartItems,
       AdditionalInformation,
       totalPrice,
-      billNumber, // ✅ ADDED HERE
+      billNumber,
     });
 
     console.log("PDF Bill Generated:", pdfFileName);
@@ -963,7 +988,7 @@ Order Time: ${new Date().toLocaleString()}
       message: "Order placed successfully",
 
       billUrl: pdfUrl,
-      billNumber: billNumber, // ✅ RETURNED TO FRONTEND
+      billNumber: billNumber,
 
       orderedItems: cartItems,
       paymentMethod,
@@ -986,7 +1011,6 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
-
 
 /* =========================
    SERVER
