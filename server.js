@@ -1055,7 +1055,7 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
-https://final-restaurant-backend-1.onrender.com/yummyrestaurant/backend
+// https://final-restaurant-backend-1.onrender.com/yummyrestaurant/backend
 app.get("/yummyrestaurant/backend", (req, res) => {
   res.json({
     success: true,
