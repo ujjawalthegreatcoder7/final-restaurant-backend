@@ -551,6 +551,7 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const Menu = require("./models/menu");
+let liveOrders  = [];
 
 const app = express();
 
@@ -943,6 +944,8 @@ app.post("/place-order", async (req, res) => {
       customerPhoto,
     } = req.body;
 
+    
+
     if (!tableNumber || !cartItems || cartItems.length === 0) {
       return res.status(400).json({
         success: false,
@@ -964,6 +967,19 @@ Price Per Item: ₹${item.price}
 Total Item Cost: ₹${item.price * item.quantity}`
       )
       .join("\n\n");
+
+  liveOrders.push({
+  billNumber,
+  customerName,
+  customerEmail,
+  customerUID,
+  tableNumber,
+  paymentMethod,
+  AdditionalInformation,
+  cartItems,
+  totalPrice,
+  time: new Date().toLocaleString(),
+});
 
     console.log(`
 ======================================================
@@ -1040,7 +1056,13 @@ Order Time: ${new Date().toLocaleString()}
   }
 });
 
-
+app.get("/yummyrestaurant/backend", (req, res) => {
+  res.json({
+    success: true,
+    totalOrders: liveOrders.length,
+    orders: liveOrders.reverse(), // latest first
+  });
+});
 /* =========================
    SERVER
 ========================= */
