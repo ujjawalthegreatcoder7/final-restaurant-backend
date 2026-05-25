@@ -876,7 +876,7 @@ app.post("/place-order", async (req, res) => {
        BILL NUMBER (DAILY RESET)
     ========================= */
     let dailyBillCounter = 0;
-    let lastBillDate = new Date().toDateString();
+let lastBillDate = new Date().toDateString();
     const today = new Date().toDateString();
 
     if (today !== lastBillDate) {
