@@ -557,6 +557,21 @@ const app = express();
 
 const Counter = require("./models/counter");
 
+const ADMIN_PASSWORD = "shree123";
+
+const adminAuth = (req, res, next) => {
+
+  const password = req.headers["x-admin-password"];
+
+  if (!password || password !== ADMIN_PASSWORD) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized Access",
+    });
+  }
+
+  next();
+};
 /* =========================
    BILL NUMBER GENERATOR (SAFE + PRODUCTION)
 ========================= */
@@ -1056,7 +1071,7 @@ Order Time: ${new Date().toLocaleString()}
   }
 });
 // https://final-restaurant-backend-1.onrender.com/yummyrestaurant/backend
-app.get("/yummyrestaurant/backend", (req, res) => {
+app.get("/yummyrestaurant/backend", adminAuth, (req, res) => {
   res.json({
     success: true,
     totalOrders: liveOrders.length,
