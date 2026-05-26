@@ -986,11 +986,11 @@ Total Item Cost: ₹${item.price * item.quantity}`
   liveOrders.push({
   billNumber,
   customerName,
-  // customerEmail,
+  customerEmail,
   // customerUID,
   tableNumber,
   paymentMethod,
-  // AdditionalInformation,
+  AdditionalInformation,
   cartItems,
   totalPrice,
   time: new Date().toLocaleString(),
