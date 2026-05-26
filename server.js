@@ -733,6 +733,25 @@ app.get("/menu", async (req, res) => {
   }
 });
 
+app.get("/admin/menu", async (req, res) => {
+
+  try {
+
+    const menuItems = await Menu.find();
+
+    res.json(menuItems);
+
+  } catch (error) {
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+
+  }
+
+});
+
 /* =========================
    TOGGLE FOOD AVAILABILITY
 ========================= */
