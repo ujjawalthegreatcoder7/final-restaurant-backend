@@ -65,6 +65,10 @@ category: {
     type: Date,
     default: Date.now,
   },
+  available: {
+  type: Boolean,
+  default: true,
+},
 });
 
 module.exports = mongoose.model("Menu", menuSchema);

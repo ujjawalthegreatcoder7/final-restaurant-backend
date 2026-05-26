@@ -551,7 +551,7 @@ const fs = require("fs");
 const path = require("path");
 require("dotenv").config();
 const Menu = require("./models/menu");
-let liveOrders  = [];
+let liveOrders = [];
 
 const app = express();
 
@@ -725,11 +725,56 @@ mongoose.connect(process.env.MONGO_URI)
 ========================= */
 app.get("/menu", async (req, res) => {
   try {
-    const menuItems = await Menu.find();
-    res.json(menuItems);
+    const menuItems = await Menu.find({
+      available: true,
+    }); res.json(menuItems);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+/* =========================
+   TOGGLE FOOD AVAILABILITY
+========================= */
+
+app.put("/admin/toggle-food/:id", async (req, res) => {
+
+  try {
+
+    const { id } = req.params;
+
+    const food = await Menu.findById(id);
+
+    if (!food) {
+      return res.status(404).json({
+        success: false,
+        message: "Food item not found",
+      });
+    }
+
+    food.available = !food.available;
+
+    await food.save();
+
+    res.json({
+      success: true,
+      message: `Food ${
+        food.available ? "Enabled" : "Disabled"
+      } Successfully`,
+      food,
+    });
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+    });
+
+  }
+
 });
 
 
@@ -959,7 +1004,7 @@ app.post("/place-order", async (req, res) => {
       customerPhoto,
     } = req.body;
 
-    
+
 
     if (!tableNumber || !cartItems || cartItems.length === 0) {
       return res.status(400).json({
@@ -983,18 +1028,18 @@ Total Item Cost: ₹${item.price * item.quantity}`
       )
       .join("\n\n");
 
-  liveOrders.push({
-  billNumber,
-  customerName,
-  customerEmail,
-  // customerUID,
-  tableNumber,
-  paymentMethod,
-  AdditionalInformation,
-  cartItems,
-  totalPrice,
-  time: new Date().toLocaleString(),
-});
+    liveOrders.push({
+      billNumber,
+      customerName,
+      customerEmail,
+      // customerUID,
+      tableNumber,
+      paymentMethod,
+      AdditionalInformation,
+      cartItems,
+      totalPrice,
+      time: new Date().toLocaleString(),
+    });
 
     console.log(`
 ======================================================
