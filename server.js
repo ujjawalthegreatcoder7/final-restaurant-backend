@@ -557,7 +557,7 @@ const app = express();
 
 const Counter = require("./models/counter");
 
-const ADMIN_PASSWORD = "shree123";
+const ADMIN_PASSWORD = "yummy7";
 
 const adminAuth = (req, res, next) => {
 
