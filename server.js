@@ -108,7 +108,7 @@ const generatePDFBill = (order) => {
       doc.moveDown();
       doc.fontSize(14).text(`Customer: ${order.customerName}`);
       doc.fontSize(14).text(`Bill No: ${order.billNumber}`);
-      doc.text(`Phone: ${order.phone}`);
+      // doc.text(`Phone: ${order.phone}`);
       doc.text(`Table: ${order.tableNumber}`);
       doc.text(`Date: ${new Date().toLocaleString()}`);
 
