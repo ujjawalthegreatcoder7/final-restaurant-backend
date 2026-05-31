@@ -34,15 +34,15 @@ const adminAuth = (req, res, next) => {
    BILL NUMBER GENERATOR (SAFE + PRODUCTION)
 ========================= */
 const getNextBillNumber = async () => {
-  // const counter = await Counter.findOneAndUpdate(
-  //   { name: "bill" },
-  //   { $inc: { value: 1 } },
-  //   { new: true, upsert: true }
-  // );
-  await Counter.findOneAndUpdate(
-  { name: "bill" },
-  { $set: { value: 0 } }
-);
+  const counter = await Counter.findOneAndUpdate(
+    { name: "bill" },
+    { $inc: { value: 1 } },
+    { new: true, upsert: true }
+  );
+//   await Counter.findOneAndUpdate(
+//   { name: "bill" },
+//   { $set: { value: 0 } }
+// );
 
   return `BILL-${String(counter.value).padStart(5, "0")}`;
 };
