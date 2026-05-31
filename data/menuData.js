@@ -5,7 +5,7 @@ const menuData = [
     name: "Margherita Pizza",
     category: "Pizza",
     description: "Classic cheesy pizza with fresh tomatoes and basil.",
-    price: .1,
+    price: 1,
     image: "/margerita.png",
     available: true,
   },
