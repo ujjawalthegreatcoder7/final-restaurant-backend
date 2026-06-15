@@ -84,67 +84,6 @@ const otpStore = new Map();
 /* =========================
    PDF BILL GENERATOR
 ========================= */
-// const generatePDFBill = (order) => {
-//   return new Promise((resolve, reject) => {
-//     try {
-//       const billsDir = path.join(__dirname, "bills");
-
-//       if (!fs.existsSync(billsDir)) {
-//         fs.mkdirSync(billsDir);
-//       }
-
-//       const fileName = `bill_${Date.now()}.pdf`;
-//       const filePath = path.join(billsDir, fileName);
-
-//       const doc = new PDFDocument();
-//       const stream = fs.createWriteStream(filePath);
-
-//       doc.pipe(stream);
-
-//       doc.fontSize(22).text("Restaurant Bill", {
-//         align: "center",
-//       });
-
-//       doc.moveDown();
-//       doc.fontSize(14).text(`Customer: ${order.customerName}`);
-//       doc.fontSize(14).text(`Bill No: ${order.billNumber}`);
-//       // doc.text(`Phone: ${order.phone}`);
-//       doc.text(`Table: ${order.tableNumber}`);
-//       doc.text(`Date: ${new Date().toLocaleString()}`);
-
-//       doc.moveDown();
-//       doc.text("Items Ordered:");
-
-//       order.cartItems.forEach((item) => {
-//         doc.text(
-//           `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
-//         );
-//       });
-
-//       doc.moveDown();
-//       doc.fontSize(16).text(`Total Bill: ₹${order.totalPrice}`);
-
-//       if (order.AdditionalInformation) {
-//         doc.moveDown();
-//         doc.fontSize(12).text(
-//           `Additional Info: ${order.AdditionalInformation}`
-//         );
-//       }
-
-//       doc.moveDown(2);
-//       doc.text("Thank you for dining with us!", {
-//         align: "center",
-//       });
-
-//       doc.end();
-
-//       stream.on("finish", () => resolve(fileName));
-
-//     } catch (error) {
-//       reject(error);
-//     }
-//   });
-// };
 
 const generatePDFBill = (order) => {
   return new Promise((resolve, reject) => {
@@ -397,9 +336,8 @@ mongoose.connect(process.env.MONGO_URI)
 ========================= */
 app.get("/menu", async (req, res) => {
   try {
-    const menuItems = await Menu.find({
-      available: true,
-    }); res.json(menuItems);
+    const menuItems = await Menu.find();
+    res.json(menuItems);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
