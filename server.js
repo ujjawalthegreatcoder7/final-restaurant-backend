@@ -84,6 +84,68 @@ const otpStore = new Map();
 /* =========================
    PDF BILL GENERATOR
 ========================= */
+// const generatePDFBill = (order) => {
+//   return new Promise((resolve, reject) => {
+//     try {
+//       const billsDir = path.join(__dirname, "bills");
+
+//       if (!fs.existsSync(billsDir)) {
+//         fs.mkdirSync(billsDir);
+//       }
+
+//       const fileName = `bill_${Date.now()}.pdf`;
+//       const filePath = path.join(billsDir, fileName);
+
+//       const doc = new PDFDocument();
+//       const stream = fs.createWriteStream(filePath);
+
+//       doc.pipe(stream);
+
+//       doc.fontSize(22).text("Restaurant Bill", {
+//         align: "center",
+//       });
+
+//       doc.moveDown();
+//       doc.fontSize(14).text(`Customer: ${order.customerName}`);
+//       doc.fontSize(14).text(`Bill No: ${order.billNumber}`);
+//       // doc.text(`Phone: ${order.phone}`);
+//       doc.text(`Table: ${order.tableNumber}`);
+//       doc.text(`Date: ${new Date().toLocaleString()}`);
+
+//       doc.moveDown();
+//       doc.text("Items Ordered:");
+
+//       order.cartItems.forEach((item) => {
+//         doc.text(
+//           `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
+//         );
+//       });
+
+//       doc.moveDown();
+//       doc.fontSize(16).text(`Total Bill: ₹${order.totalPrice}`);
+
+//       if (order.AdditionalInformation) {
+//         doc.moveDown();
+//         doc.fontSize(12).text(
+//           `Additional Info: ${order.AdditionalInformation}`
+//         );
+//       }
+
+//       doc.moveDown(2);
+//       doc.text("Thank you for dining with us!", {
+//         align: "center",
+//       });
+
+//       doc.end();
+
+//       stream.on("finish", () => resolve(fileName));
+
+//     } catch (error) {
+//       reject(error);
+//     }
+//   });
+// };
+
 const generatePDFBill = (order) => {
   return new Promise((resolve, reject) => {
     try {
@@ -96,49 +158,197 @@ const generatePDFBill = (order) => {
       const fileName = `bill_${Date.now()}.pdf`;
       const filePath = path.join(billsDir, fileName);
 
-      const doc = new PDFDocument();
+      // Thermal Receipt Size
+      const doc = new PDFDocument({
+        size: [226, 800],
+        margin: 10,
+      });
+
       const stream = fs.createWriteStream(filePath);
 
       doc.pipe(stream);
 
-      doc.fontSize(22).text("Restaurant Bill", {
-        align: "center",
-      });
+      // =========================
+      // HEADER
+      // =========================
+
+      doc
+        .fontSize(18)
+        .text("SAGAR RATNA", {
+          align: "center",
+        });
+
+      doc
+        .fontSize(11)
+        .text("JAI MATA DI", {
+          align: "center",
+        });
+
+      doc.moveDown(0.5);
+
+      doc
+        .fontSize(8)
+        .text("Retail Invoice", {
+          align: "center",
+        });
 
       doc.moveDown();
-      doc.fontSize(14).text(`Customer: ${order.customerName}`);
-      doc.fontSize(14).text(`Bill No: ${order.billNumber}`);
-      // doc.text(`Phone: ${order.phone}`);
-      doc.text(`Table: ${order.tableNumber}`);
-      doc.text(`Date: ${new Date().toLocaleString()}`);
 
-      doc.moveDown();
-      doc.text("Items Ordered:");
+      // =========================
+      // CUSTOMER INFO
+      // =========================
+
+      doc.fontSize(9);
+
+      doc.text(`Customer : ${order.customerName}`);
+      doc.text(`Bill No  : ${order.billNumber}`);
+      doc.text(`Table    : ${order.tableNumber}`);
+      doc.text(
+        `Date     : ${new Date().toLocaleString()}`
+      );
+
+      doc.moveDown(0.5);
+
+      doc.text("--------------------------------");
+
+      // =========================
+      // TABLE HEADER
+      // =========================
+
+      doc.text("Item             Qty    Amt");
+      doc.text("--------------------------------");
+
+      let totalQty = 0;
 
       order.cartItems.forEach((item) => {
+        totalQty += item.quantity;
+
+        const amount =
+          item.price * item.quantity;
+
+        const itemName =
+          item.name.length > 15
+            ? item.name.substring(0, 15)
+            : item.name;
+
         doc.text(
-          `${item.name} x${item.quantity} = ₹${item.price * item.quantity}`
+          `${itemName.padEnd(15)} ${String(
+            item.quantity
+          ).padEnd(4)} ₹${amount}`
         );
       });
 
-      doc.moveDown();
-      doc.fontSize(16).text(`Total Bill: ₹${order.totalPrice}`);
+      doc.text("--------------------------------");
+
+      // =========================
+      // GST CALCULATION
+      // =========================
+
+      const subtotal =
+        order.totalPrice / 1.05;
+
+      const cgst = subtotal * 0.025;
+      const sgst = subtotal * 0.025;
+
+      doc.moveDown(0.5);
+
+      doc.text(
+        `Items : ${order.cartItems.length}`
+      );
+
+      doc.text(
+        `Qty   : ${totalQty}`
+      );
+
+      doc.moveDown(0.5);
+
+      doc.text(
+        `Subtotal      ₹${subtotal.toFixed(2)}`
+      );
+
+      doc.text(
+        `CGST (2.5%)   ₹${cgst.toFixed(2)}`
+      );
+
+      doc.text(
+        `SGST (2.5%)   ₹${sgst.toFixed(2)}`
+      );
+
+      doc.text("--------------------------------");
+
+      doc
+        .fontSize(12)
+        .text(
+          `NET TOTAL : ₹${Number(
+            order.totalPrice
+          ).toFixed(2)}`
+        );
+
+      doc.text("--------------------------------");
+
+      // =========================
+      // ADDITIONAL INFO
+      // =========================
 
       if (order.AdditionalInformation) {
         doc.moveDown();
-        doc.fontSize(12).text(
-          `Additional Info: ${order.AdditionalInformation}`
-        );
+
+        doc
+          .fontSize(9)
+          .text(
+            `Note: ${order.AdditionalInformation}`
+          );
       }
 
-      doc.moveDown(2);
-      doc.text("Thank you for dining with us!", {
-        align: "center",
-      });
+      // =========================
+      // TOKEN
+      // =========================
+
+      const tokenNo =
+        Math.floor(
+          1000 + Math.random() * 9000
+        );
+
+      doc.moveDown();
+
+      doc
+        .fontSize(12)
+        .text(
+          `Token No. T${tokenNo}`,
+          {
+            align: "center",
+          }
+        );
+
+      // =========================
+      // FOOTER
+      // =========================
+
+      doc.moveDown();
+
+      doc
+        .fontSize(10)
+        .text(
+          "Thank You For Visiting",
+          {
+            align: "center",
+          }
+        );
+
+      doc.text(
+        "Visit Again!",
+        {
+          align: "center",
+        }
+      );
 
       doc.end();
 
-      stream.on("finish", () => resolve(fileName));
+      stream.on("finish", () =>
+        resolve(fileName)
+      );
+
+      stream.on("error", reject);
 
     } catch (error) {
       reject(error);
