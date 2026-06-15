@@ -26,7 +26,8 @@ category: {
     "Beverages",
     "Main Course",
     "Salads",
-    "Desserts"
+    "Desserts",
+    "southindian"
   ],
   required: true,
 },

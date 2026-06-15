@@ -105,6 +105,38 @@ const menuData = [
     image: "/kulfi.png",
     available: true,
   },
+    {
+    name: "Rawa Dosa",
+    category: "southindian",
+    description: "A crunchy South Indian delight with authentic flavors.",
+    price: 1,
+    image: "/rawadosa.jpg",
+    available: true,
+  },
+    {
+    name: "Dosa",
+    category: "southindian",
+    description: "Traditional dosa made to perfection for every bite.",
+    price: 1,
+    image: "/dosa.jpg",
+    available: true,
+  },
+    {
+    name: "Idli",
+    category: "southindian",
+    description: "Light, healthy, and irresistibly soft South Indian idlis.",
+    price: 1,
+    image: "/idli.jpg",
+    available: true,
+  },
+    {
+    name: "Idli Chaat",
+    category: "southindian",
+    description: "Fresh vegetables and soft batter come together in every bite.",
+    price: 1,
+    image: "/uttappam.jpg",
+    available: true,
+  },
 ];
 
 module.exports = menuData;
