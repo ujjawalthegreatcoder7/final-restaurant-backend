@@ -113,13 +113,13 @@ const generatePDFBill = (order) => {
 
       doc
         .fontSize(18)
-        .text("SAGAR RATNA", {
+        .text("Karigar Labs", {
           align: "center",
         });
 
       doc
         .fontSize(11)
-        .text("JAI MATA DI", {
+        .text("Thanks For Purchasing", {
           align: "center",
         });
 
