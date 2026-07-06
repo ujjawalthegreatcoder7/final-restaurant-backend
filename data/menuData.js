@@ -22,7 +22,7 @@ const menuData = [
     category: "Pasta",
     description: "Creamy white sauce pasta topped with herbs.",
     price: 1,
-    image: "/whitesaucepasta.png",
+    image: "/lamp1.png",
     available: true,
   },
   {
