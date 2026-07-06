@@ -638,6 +638,11 @@ app.post("/saveuser", (req, res) => {
 
 });
 
+app.get("/ping", (req,res)=>{
+    res.status(200).json({
+        message:"Server is awake 🚀"
+    });
+});
 
 app.post("/place-order", async (req, res) => {
   try {
