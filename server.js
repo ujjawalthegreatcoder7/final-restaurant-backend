@@ -655,7 +655,7 @@ app.post("/place-order", async (req, res) => {
 
 
 
-    if (!tableNumber || !cartItems || cartItems.length === 0) {
+    if ( !cartItems || cartItems.length === 0) {
       return res.status(400).json({
         success: false,
         message: "Missing required data",
@@ -726,7 +726,7 @@ Order Time: ${new Date().toLocaleString()}
     const pdfFileName = await generatePDFBill({
       customerName,
       customerEmail,
-      tableNumber,
+      // tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
@@ -763,6 +763,8 @@ Order Time: ${new Date().toLocaleString()}
     });
   }
 });
+
+
 // https://final-restaurant-backend-1.onrender.com/yummyrestaurant/backend
 app.get("/yummyrestaurant/backend", adminAuth, (req, res) => {
   res.json({
