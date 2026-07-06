@@ -27,7 +27,11 @@ category: {
     "Main Course",
     "Salads",
     "Desserts",
-    "southindian"
+    "lamps",
+    "purse",
+    "clock",
+    "bed",
+    "pots"
   ],
   required: true,
 },
