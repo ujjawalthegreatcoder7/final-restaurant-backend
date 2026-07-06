@@ -642,7 +642,7 @@ app.post("/saveuser", (req, res) => {
 app.post("/place-order", async (req, res) => {
   try {
     const {
-      tableNumber,
+      // tableNumber,
       cartItems,
       AdditionalInformation,
       totalPrice,
@@ -682,7 +682,7 @@ Total Item Cost: ₹${item.price * item.quantity}`
       customerName,
       customerEmail,
       // customerUID,
-      tableNumber,
+      // tableNumber,
       paymentMethod,
       AdditionalInformation,
       cartItems,
@@ -705,7 +705,6 @@ UID    : ${customerUID || "N/A"}
 
 ------------------------------------------------------
 
-Table Number  : ${tableNumber}
 Payment Method: ${paymentMethod}
 
 Additional Info:
